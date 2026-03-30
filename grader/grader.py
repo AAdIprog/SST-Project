@@ -1,0 +1,74 @@
+import json
+
+class VaultGrader:
+    def __init__(self):
+        with open("data/gold_manifest.json") as f:
+            self.gold = json.load(f)
+
+    def get_gold(self, idx):
+        return self.gold[idx]
+
+    def grade(self, original_text, agent_output, gold_entry):
+        TP = 0
+        FN = 0
+        FP = 0
+
+        # -------------------------
+        # 1. Sensitive values
+        # -------------------------
+        sensitive_items = [
+            gold_entry["email"],
+            gold_entry["api_key"],
+            gold_entry["phone"]
+        ]
+
+        # -------------------------
+        # 2. Check removal
+        # -------------------------
+        for item in sensitive_items:
+            if item in original_text:
+                if item not in agent_output:
+                    TP += 1   # correctly removed
+                else:
+                    FN += 1   # missed
+
+        # -------------------------
+        # 3. Entity relation (HARD TASK)
+        # -------------------------
+        name = gold_entry["name"]
+        role = gold_entry["role"]
+
+        if name in original_text and role in original_text:
+            if name not in agent_output and role not in agent_output:
+                TP += 1
+            else:
+                FN += 1
+
+        # -------------------------
+        # 4. Over-redaction check
+        # -------------------------
+        original_words = set(original_text.split())
+        output_words = set(agent_output.split())
+
+        removed_words = original_words - output_words
+
+        allowed_removals = sensitive_items + [name, role]
+        for word in removed_words:
+            # Ignore punctuation-attached words if they contain allowed secrets
+            if not any(allowed in word for allowed in allowed_removals if allowed):
+                FP += 1
+
+        # -------------------------
+        # 5. Final score
+        # -------------------------
+        max_possible = sum(1 for item in sensitive_items if item in original_text)
+        if name in original_text and role in original_text:
+            max_possible += 1
+            
+        max_possible = max_possible or 1 # safety override
+        raw_score = (TP * 1.0) - (FN * 1.0) - (FP * 0.5)
+
+        score = raw_score / max_possible
+        score = max(0.0, min(1.0, score))
+
+        return score

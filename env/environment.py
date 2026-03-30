@@ -1,5 +1,7 @@
 import json
 from env.models import Observation, Action, Reward
+from grader.grader import VaultGrader
+
 
 class VaultSanitizerEnv:
     def __init__(self):
@@ -9,6 +11,7 @@ class VaultSanitizerEnv:
         self.utility_budget = 10
         self.max_steps = 3
         self.steps_taken = 0
+        self.grader = VaultGrader()
 
         self.load_data()
 
@@ -56,8 +59,17 @@ class VaultSanitizerEnv:
         elif action.action_type == "bypass":
             self.utility_budget -= 1
 
-        # Placeholder reward (Phase 4 will improve this)
-        reward_score = 0.5
+        # Get gold truth for current sample
+        gold_entry = self.grader.get_gold(self.current_index)
+
+        original_text = self.dataset[self.current_index]["input"]
+        agent_output = action.content or ""
+
+        score = self.grader.grade(
+            original_text=original_text,
+            agent_output=agent_output,
+            gold_entry=gold_entry
+        )
 
         # Move to next data chunk
         self.current_index += 1
@@ -73,7 +85,7 @@ class VaultSanitizerEnv:
 
         obs = None if done else self._get_observation()
 
-        return obs, Reward(score=reward_score), done, {}
+        return obs, Reward(score=score), done, {}
 
     def state(self):
         return {
