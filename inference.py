@@ -53,6 +53,21 @@ def regex_agent_logic(obs):
         
     return {"action_type": "bypass", "content": text}
 
+def enhanced_agent_logic(obs):
+    """Slightly smarter than regex: catches names+roles."""
+    text = obs["data_chunk"]
+
+    # Step 1: regex cleaning
+    text = re.sub(r'[\w\.-]+@[\w\.-]+', '[REDACTED]', text)
+    text = re.sub(r'sk-[a-zA-Z0-9]{16,}', '[REDACTED]', text)
+    text = re.sub(r'\b\d{10}\b', '[REDACTED]', text)
+
+    # Step 2: simple context reasoning
+    text = re.sub(r'\b[A-Z][a-z]+, the (CFO|CEO|CTO|Manager)\b', '[REDACTED]', text)
+    text = re.sub(r'\b[A-Z][a-z]+ \((CFO|CEO|CTO|Manager)\)\b', '[REDACTED]', text)
+
+    return {"action_type": "redact", "content": text}
+
 def llm_agent_logic(obs, client, model_name):
     """The Frontier Agent."""
     user_msg = f"Data Chunk: {obs['data_chunk']}\nRisk Report: {obs['risk_report']}"
@@ -75,9 +90,8 @@ def llm_agent_logic(obs, client, model_name):
             
         return {"action_type": action_type, "content": result.get("content", obs['data_chunk'])}
     except Exception as e:
-        print(f"  [!] LLM Error: {e} → using fallback")
-        print("  [LLM fallback → regex]")
-        return regex_agent_logic(obs)
+        print(f"  [!] LLM Error: {e} → using enhanced fallback")
+        return enhanced_agent_logic(obs)
 
 # --- EVALUATION LOOP ---
 
