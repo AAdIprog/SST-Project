@@ -3,6 +3,9 @@ from env.models import Observation, Action, Reward
 from grader.grader import VaultGrader
 
 
+SUPPORTED_ACTION_TYPES = {"redact", "delete", "bypass"}
+
+
 class VaultSanitizerEnv:
     def __init__(self):
         self.dataset = []
@@ -46,24 +49,36 @@ class VaultSanitizerEnv:
         )
 
     def step(self, action: Action):
-        if self.current_index >= len(self.dataset) or self.utility_budget <= 0:
+        # Halt immediately if any terminal condition has already been reached.
+        if (
+            self.current_index >= len(self.dataset)
+            or self.utility_budget <= 0
+            or self.steps_taken >= self.max_steps
+        ):
             return None, Reward(score=0.0), True, {}
+
+        action_type = getattr(action, "action_type", None)
+        if action_type not in SUPPORTED_ACTION_TYPES:
+            return self._get_observation(), Reward(score=0.0), False, {
+                "error": "invalid_action_type",
+                "supported_actions": sorted(SUPPORTED_ACTION_TYPES),
+            }
 
         self.steps_taken += 1
 
         done = False
 
         # Apply action logic (basic for now)
-        if action.action_type == "delete":
+        if action_type == "delete":
             self.utility_budget -= 2
-        elif action.action_type == "bypass":
+        elif action_type == "bypass":
             self.utility_budget -= 1
 
         # Get gold truth for current sample
         gold_entry = self.grader.get_gold(self.current_index)
 
         original_text = self.dataset[self.current_index]["input"]
-        agent_output = action.content or ""
+        agent_output = getattr(action, "content", "") or ""
 
         score = self.grader.grade(
             original_text=original_text,

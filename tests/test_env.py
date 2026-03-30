@@ -1,6 +1,7 @@
 import pytest
 from env.environment import VaultSanitizerEnv
 from env.models import Action
+from pydantic import ValidationError
 
 @pytest.fixture
 def env():
@@ -93,3 +94,36 @@ def test_deterministic_behavior(env):
     _, reward2, _, _ = env.step(action)
 
     assert reward1.score == reward2.score
+
+
+def test_action_type_rejects_unknown_value():
+    with pytest.raises(ValidationError) as exc_info:
+        Action(action_type="mask", content="test")
+
+    errors = exc_info.value.errors()
+    assert any("action_type" in err.get("loc", []) for err in errors)
+    assert "mask" in str(exc_info.value)
+
+
+def test_action_type_accepts_supported_values():
+    for action_type in ["redact", "delete", "bypass"]:
+        action = Action(action_type=action_type, content="test")
+        assert action.action_type == action_type
+
+
+def test_step_handles_invalid_action_type_gracefully(env):
+    class RawAction:
+        action_type = "mask"
+        content = "test"
+
+    env.reset()
+    state_before = env.state().copy()
+
+    obs, reward, done, info = env.step(RawAction())
+
+    assert obs is not None
+    assert reward.score == 0.0
+    assert done is False
+    assert info.get("error") == "invalid_action_type"
+    assert info.get("supported_actions") == ["bypass", "delete", "redact"]
+    assert env.state() == state_before
