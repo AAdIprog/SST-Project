@@ -60,6 +60,8 @@ For developers looking to continue the build, here are the sequential phases rem
   - `LLM Agent` (OpenAI client)
 - **Run evaluations** on all tasks and generate a baseline score performance table.
 
+> **Robust Architecture Note:** The `LLMAgent` includes a fallback mechanism to route execution to a rule-based sanitizer (`RegexAgent`) in the event of API inference failures, ensuring stable dataset evaluation without defaulting to simple bypass failures!
+
 ### Phase 6 — Testing & Validation
 - **Add** unit tests within `tests/`.
 - **Validate core environment loop:**
