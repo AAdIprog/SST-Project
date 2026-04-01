@@ -59,6 +59,20 @@ The hidden Gold Manifest tests the agent sequentially against escalating complex
 - 🟡 **Medium (System Secrets):** Locate embedded and hidden high entropy strings (ex: AWS API Keys `sk-...`).
 - 🔴 **Hard (Contextual De-Identification):** The true test of frontier reasoning. The agent must detect and break semantic links tying *Names* to corporate *Roles* (e.g., in the phrase *"Akash, the CFO"*, the agent must remove BOTH the name and the role to prevent identity extrapolation).
 
+### ⚖️ Evaluating Joint Predictions (Name + Role)
+To mathematically prevent "shortcut" configurations (like Regex traps blindly purging all capitalized words) we employ **Explicit Joint Entity Mapping** through deterministic normalizations.
+
+#### Why "Name-Only" Matching is Insufficient:
+An agent detecting "Elon Musk" but ignoring "Chief Executive Officer" fails the fundamental dataset sanitization objective; the individual's identity is highly susceptible to extrapolation!
+
+We grade outputs mathematically on the absolute tuple pair: `(Name, Role)`:
+- 🟢 **✅ Correct (True Positive):** Predicted `("Elon Musk", "CEO")` precisely maps onto the Ground Truth `("Elon Musk", "CEO")`. *(Normalization safely catches trailing punctuation and handles synonym mapping! e.g., "chief executive officer" ≈ "ceo")*
+- 🔴 **❌ Wrong Role (False Positive):** Predicted `("Elon Musk", "Founder")`. The agent missed the actual relational link inside the text. Triggers a False Positive penalty for hallucinating and a False Negative penalty for missing the legitimate role.
+- 🔴 **❌ Missing Identity (False Negative):** Predicted `("Unknown", "CEO")`. The name was lost.
+- 🔴 **❌ Unlinked Identity (False Negative):** Predicted `("Elon Musk", "")`. The agent purged the name but leaked the associated relational role entirely.
+
+This Joint Matching effectively shatters all "Weak Agent" regex paradigms, mathematically forcing the model to display robust relational contextual reasoning.
+
 ---
 
 ## 📊 Baseline Agent Performance
