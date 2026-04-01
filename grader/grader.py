@@ -1,5 +1,13 @@
 import json
 
+
+OVER_DELETION_MIN_RATIO = 0.3
+
+
+def _normalized_len(text):
+    # Treat repeated/leading/trailing whitespace as non-meaningful content.
+    return len(" ".join((text or "").split()))
+
 class VaultGrader:
     def __init__(self):
         with open("data/gold_manifest.json") as f:
@@ -9,6 +17,10 @@ class VaultGrader:
         return self.gold[idx]
 
     def grade(self, original_text, agent_output, gold_entry):
+        # Prevent reward exploitation via aggressive deletion of useful context.
+        if original_text and _normalized_len(agent_output) < OVER_DELETION_MIN_RATIO * _normalized_len(original_text):
+            return 0.0
+
         TP = 0
         FN = 0
         FP = 0
