@@ -5,3 +5,6 @@
 __pycache__/
 node_modules/
 venv/
+# Generated Audit Reports
+*.html
+audit_report_*.html
