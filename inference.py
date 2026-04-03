@@ -8,6 +8,121 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- HTML REPORTING DASHBOARD ---
+
+def generate_html_report(original_text, sanitized_text, agent_name, score):
+    # Style the redaction badge safely strictly within Python f-string bounds
+    styled_sanitized = sanitized_text.replace('[REDACTED]', '<span class="redacted-badge">[REDACTED]</span>') if sanitized_text else sanitized_text
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Sanitizer Audit - {agent_name}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
+        }}
+        .container {{
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+            padding: 30px;
+        }}
+        h1 {{
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: #1a1a1a;
+        }}
+        .meta {{
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eaeaea;
+        }}
+        .score-badge {{
+            display: inline-block;
+            background: #000;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-left: 10px;
+        }}
+        .grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }}
+        .panel {{
+            background: #fafafa;
+            border: 1px solid #ebebeb;
+            border-radius: 8px;
+            padding: 20px;
+        }}
+        .panel h2 {{
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }}
+        pre {{
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }}
+        .redacted-badge {{
+            background-color: #e6f7ed;
+            color: #1e7e4a;
+            border: 1px dashed #1e7e4a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            display: inline-block;
+            margin: 0 2px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Visual Audit Trail <span class="score-badge">Score: {score:.2f}</span></h1>
+        <div class="meta">Agent Context: <strong>{agent_name}</strong></div>
+        
+        <div class="grid">
+            <div class="panel">
+                <h2>Raw Training Data</h2>
+                <pre>{original_text}</pre>
+            </div>
+            <div class="panel">
+                <h2>Sanitized Output</h2>
+                <pre>{styled_sanitized}</pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    filename = f"audit_report_{agent_name}.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print(f"  [+] Generated {filename}")
+
+
+
 SYSTEM_PROMPT = (
     "You are a Data Compliance Engineer sanitizing text for Enterprise LLM training.\n"
     "\n"
@@ -118,11 +233,19 @@ def evaluate_agent(agent_name, agent_func, base_url="http://localhost:7860"):
     steps = 0
     used_fallback = False
     
+    # Audit trail trackers
+    first_original_chunk = obs.get("data_chunk", "")
+    first_sanitized_chunk = ""
+    first_score = 0.0
+    
     while True:
         # Get action from the specific agent
         action_payload = agent_func(obs)
         if action_payload.pop("is_fallback", False):
             used_fallback = True
+            
+        if steps == 0:
+            first_sanitized_chunk = action_payload.get("content", "")
         
         # Step the environment
         step_resp = requests.post(f"{base_url}/step", json=action_payload)
@@ -137,6 +260,10 @@ def evaluate_agent(agent_name, agent_func, base_url="http://localhost:7860"):
             
         step_data = step_resp.json()
         score = step_data["reward"]["score"]
+        
+        if steps == 0:
+            first_score = score
+            
         total_score += score
         steps += 1
         
@@ -146,6 +273,10 @@ def evaluate_agent(agent_name, agent_func, base_url="http://localhost:7860"):
 
     avg_score = total_score / steps if steps > 0 else 0
     print(f"  -> Finished {steps} steps. Average Score: {avg_score:0.2f}")
+    
+    # Generate the visual HTML audit report for the very first step chunk
+    generate_html_report(first_original_chunk, first_sanitized_chunk, agent_name, first_score)
+    
     return avg_score, used_fallback
 
 if __name__ == "__main__":
