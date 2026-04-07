@@ -21,3 +21,64 @@ def test_healthcheck_endpoint():
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["documents"] > 0
+
+
+def test_demo_samples_endpoint():
+    response = client.get("/demo/samples")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["samples"]
+    assert "text" in payload["samples"][0]
+
+
+def test_judge_page_and_featured_endpoints():
+    assert client.get("/judge").status_code == 200
+    featured = client.get("/demo/featured")
+    assert featured.status_code == 200
+    assert len(featured.json()["samples"]) >= 1
+
+
+def test_demo_leaderboard_endpoint():
+    response = client.get("/demo/leaderboard")
+    assert response.status_code == 200
+    payload = response.json()["leaderboard"]
+    assert "RulesAgent" in payload
+
+
+def test_demo_run_endpoint_with_rules_agent():
+    response = client.post(
+        "/demo/run",
+        json={
+            "text": "Contact remy.lopez@supplyline.net at 3125550109 with key sk-session-SUPPLY7788",
+            "task_type": "easy",
+            "policy_mode": "external_sharing",
+            "content_format": "email",
+            "agent": "rules",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["action_type"] in {"redact", "rewrite"}
+    assert "[REDACTED]" in payload["output_text"]
+    assert payload["reward"]["leak_free_ratio"] == 1.0
+
+
+def test_demo_compare_endpoint():
+    response = client.post(
+        "/demo/compare",
+        json={
+            "text": "Escalation owner: NOC\nVendor contact: remy.lopez@supplyline.net\nBridge line: 3125550109",
+            "task_type": "easy",
+            "policy_mode": "external_sharing",
+            "content_format": "email",
+            "agents": ["random", "rules"],
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload["runs"].keys()) == {"random", "rules"}
+
+
+def test_demo_report_endpoint_returns_file_or_not_found():
+    response = client.get("/demo/report")
+    assert response.status_code in {200, 404}

@@ -63,6 +63,10 @@ The FastAPI service exposes the standard interface:
 - `POST /step`
 - `GET /state`
 - `GET /healthz`
+- `GET /demo`
+- `GET /demo/samples`
+- `POST /demo/run`
+- `POST /demo/compare`
 
 Typed models live in [env/models.py](/Users/mrhapile/Hackathon/LLM-Sanitizer-openenv/env/models.py).
 
@@ -229,6 +233,43 @@ curl -X POST http://localhost:7860/reset
 curl http://localhost:7860/state
 ```
 
+#### Open the live judge demo
+
+Visit [http://localhost:7860/demo](http://localhost:7860/demo).
+
+The live demo supports:
+
+- pasted arbitrary input
+- sample presets from the task corpus
+- policy switching
+- agent switching
+- before vs after output
+- score breakdowns
+- risk and failure panels
+- side-by-side comparison mode
+
+#### Open the judge launchpad
+
+Visit [http://localhost:7860/judge](http://localhost:7860/judge).
+
+Use this page during judging because it gives you:
+
+- a direct button to open the interactive playground
+- a direct button to open the generated HTML report
+- a health check shortcut
+- featured case cards for fast demo setup
+- a leaderboard snapshot for benchmark storytelling
+
+Recommended live judge flow:
+
+1. Open `/judge`
+2. Show the featured cases and leaderboard strip
+3. Click `Open Judge Demo`
+4. Load a featured hard case
+5. Run the `rules` agent once
+6. Turn on compare mode to show `random` vs `rules`
+7. Open `/demo/report` if you want a polished static summary
+
 #### Run the baseline benchmark
 
 ```bash
@@ -239,6 +280,40 @@ Optional benchmark export:
 
 ```bash
 BENCHMARK_OUTPUT_JSON=benchmark.json python inference.py
+```
+
+#### Call the demo API directly
+
+Fetch presets:
+
+```bash
+curl http://localhost:7860/demo/samples
+```
+
+Fetch featured showcase cases:
+
+```bash
+curl http://localhost:7860/demo/featured
+```
+
+Fetch the leaderboard snapshot:
+
+```bash
+curl http://localhost:7860/demo/leaderboard
+```
+
+Run the rules agent on arbitrary input:
+
+```bash
+curl -X POST http://localhost:7860/demo/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":"Contact remy.lopez@supplyline.net at 3125550109 with key sk-session-SUPPLY7788",
+    "task_type":"easy",
+    "policy_mode":"external_sharing",
+    "content_format":"email",
+    "agent":"rules"
+  }'
 ```
 
 #### Run the demo report
@@ -279,14 +354,19 @@ python inference.py
 ```
 
 If the OpenAI API returns quota or provider errors, the run will skip the LLM baseline and keep the local benchmark results.
-```
 
-It produces `release_desk_demo.html` with:
+## How To Present It Live
 
-- before vs after panels for easy, medium, and hard tasks
-- RandomAgent versus RulesAgent comparisons
-- per-case reward metrics
-- risk, adversarial, and failure breakdowns
+If you want the smoothest judge demo:
+
+1. Start the API with `python cli.py serve` or `uvicorn main:app --host 0.0.0.0 --port 7860`
+2. Open `/judge`
+3. Use a featured case card to explain the scenario
+4. Open the interactive playground
+5. Run the selected case once with `rules`
+6. Enable compare mode to show `random` versus `rules`
+7. Point to the score breakdown, failure reasons, and leaderboard strip
+8. Open `/demo/report` for a static polished summary if needed
 
 ## Tests
 

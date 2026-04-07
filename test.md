@@ -22,6 +22,8 @@ curl http://localhost:7860/
 curl http://localhost:7860/healthz
 curl -X POST http://localhost:7860/reset
 curl http://localhost:7860/state
+curl http://localhost:7860/demo
+curl http://localhost:7860/demo/samples
 ```
 
 ## Baseline runner
@@ -41,6 +43,15 @@ BENCHMARK_OUTPUT_JSON=benchmark.json python inference.py
 ```bash
 python demo.py
 ```
+
+## Live judge demo
+
+Open `http://localhost:7860/demo` and verify:
+
+- sample gallery loads
+- pasted input sanitizes correctly
+- compare mode returns multiple agent outputs
+- score, risk, and failure panels update
 
 ## Docker
 
